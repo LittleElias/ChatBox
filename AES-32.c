@@ -1,9 +1,11 @@
-// aes32.c - AES-32 encryption library implementation
+// aes32.c - AES-32 encryption library implementation (modified for secure random)
 #define AES32_EXPORTS
 #include "AES-32.h"
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
+#include <windows.h>
+#include <wincrypt.h>
 
 static const uint8_t sbox[256] = {
     0x63, 0x7C, 0x77, 0x7B, 0xF2, 0x6B, 0x6F, 0xC5, 0x30, 0x01, 0x67, 0x2B, 0xFE, 0xD7, 0xAB, 0x76,
@@ -186,6 +188,17 @@ AES32_API void aes32_decrypt_block(const uint8_t* input, const uint8_t* ctx, uin
     memcpy(output, state, AES32_BLOCK_SIZE);
 }
 
+static void secure_random_bytes(uint8_t* buf, size_t len) {
+    HCRYPTPROV hProv;
+    if (CryptAcquireContext(&hProv, NULL, NULL, PROV_RSA_FULL, CRYPT_VERIFYCONTEXT)) {
+        CryptGenRandom(hProv, (DWORD)len, buf);
+        CryptReleaseContext(hProv, 0);
+    } else {
+        // fallback to rand (not secure, but better than nothing)
+        for (size_t i = 0; i < len; i++) buf[i] = (uint8_t)(rand() % 256);
+    }
+}
+
 AES32_API int aes32_encrypt_cbc(const uint8_t* input, size_t input_len, const uint8_t* key, uint8_t** output, size_t* output_len) {
     if (!input || !key || !output || !output_len || input_len == 0) return -1;
     size_t pad_len = AES32_BLOCK_SIZE - (input_len % AES32_BLOCK_SIZE);
@@ -195,7 +208,7 @@ AES32_API int aes32_encrypt_cbc(const uint8_t* input, size_t input_len, const ui
     if (!*output) return -1;
 
     uint8_t iv[AES32_BLOCK_SIZE];
-    for (int i = 0; i < AES32_BLOCK_SIZE; i++) iv[i] = (uint8_t)(rand() % 256);
+    secure_random_bytes(iv, AES32_BLOCK_SIZE);
     memcpy(*output, iv, AES32_BLOCK_SIZE);
 
     uint8_t expanded_key[AES32_EXPANDED_KEY_SIZE];
@@ -257,8 +270,8 @@ static char* base64_encode(const uint8_t* data, size_t len) {
         out[j++] = b64_chars[(t >> 6) & 0x3F];
         out[j++] = b64_chars[t & 0x3F];
     }
-    if (len % 3 == 1) { out[j-2] = '='; out[j-1] = '='; }
-    else if (len % 3 == 2) out[j-1] = '=';
+    if (len % 3 == 1) { out[j - 2] = '='; out[j - 1] = '='; }
+    else if (len % 3 == 2) out[j - 1] = '=';
     out[j] = '\0';
     return out;
 }
@@ -364,7 +377,7 @@ AES32_API int aes32_decrypt_file(const char* input_path, const char* output_path
 }
 
 AES32_API void aes32_generate_key(uint8_t* key) {
-    for (int i = 0; i < AES32_KEY_SIZE; i++) key[i] = (uint8_t)(rand() % 256);
+    secure_random_bytes(key, AES32_KEY_SIZE);
 }
 
 AES32_API void aes32_key_to_hex(const uint8_t* key, char* hex) {

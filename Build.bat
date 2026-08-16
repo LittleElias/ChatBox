@@ -7,7 +7,7 @@ copy /Y ".\ChatBox\App\Icon\Icon.o" ".\Icon.o" >nul
 g++ ChatBox.cpp AES-32.c Icon.o -o ChatBox.exe ^
     -std=c++11 -O2 ^
     -static ^
-    -lws2_32 -liphlpapi -lcomdlg32 -lshell32 -lcomctl32 -lgdi32 -luser32 -lmpr ^
+    -lws2_32 -liphlpapi -lcomdlg32 -lshell32 -lcomctl32 -lgdi32 -luser32 -lmpr -ladvapi32 -lcrypt32 ^
     -mwindows
 
 del /Q Icon.o
